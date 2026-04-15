@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --experimental-https --experimental-https-cert certs/localhost.pem --experimental-https-key certs/localhost-key.pem",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "cert:local": "bash scripts/gen-local-cert.sh",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
