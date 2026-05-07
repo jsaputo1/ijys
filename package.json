@@ -13,22 +13,23 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.3",
     "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@storybook/nextjs-vite": "^10.3.5",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "eslint-plugin-storybook": "^10.3.5",
+    "storybook": "^10.3.5",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "storybook": "^10.3.5",
-    "@storybook/nextjs-vite": "^10.3.5",
-    "vite": "^8.0.8",
-    "eslint-plugin-storybook": "^10.3.5"
+    "vite": "^8.0.8"
   }
 }
