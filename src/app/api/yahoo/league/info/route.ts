@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getYahooEnv } from "@/lib/env";
+import { getLeagueWeekBounds } from "@/lib/yahoo/roto/yahoo-scoreboard";
 import { getValidYahooAccessToken } from "@/lib/yahoo/tokens";
 
 export async function GET() {
@@ -41,10 +42,19 @@ export async function GET() {
       );
     }
 
+    const leagueParsed: unknown = JSON.parse(responseBody);
+    const { startWeek: seasonStartWeek, endWeek: currentWeek } =
+      getLeagueWeekBounds(leagueParsed);
+
     return NextResponse.json({
       ok: true,
       leagueKey,
-      league: JSON.parse(responseBody),
+      weekBounds: {
+        seasonStartWeek,
+        /** Yahoo’s active scoring week (same source the roto route uses as `endWeek`). */
+        currentWeek,
+      },
+      league: leagueParsed,
     });
   } catch (error) {
     return NextResponse.json(
