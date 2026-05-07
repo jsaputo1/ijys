@@ -519,7 +519,7 @@ export function RotoDashboard() {
   ]);
 
   return (
-    <div className="flex w-full flex-col lg:gap-10 gap-6 text-[13px] lg:text-sm">
+    <div className="flex w-full flex-col lg:gap-6 gap-6 text-[13px] lg:text-sm">
       <div className="flex flex-wrap items-end lg:gap-6 gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-900">
           Start week
@@ -584,6 +584,9 @@ export function RotoDashboard() {
 
       {roto?.categories?.length ? (
         <>
+                    <p className="text-sm text-zinc-500">
+              Week {roto.filters.startWeek} to {endWeekDisplayLabel}
+            </p>
           <section className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
               Frankings
@@ -779,9 +782,6 @@ export function RotoDashboard() {
             <h2 className="text-lg font-semibold text-zinc-900">
               Category totals
             </h2>
-            <p className="text-sm text-zinc-500">
-              Week {roto.filters.startWeek} to {endWeekDisplayLabel}
-            </p>
             <div
               ref={totalsTableWrapRef}
               className="-mx-1 overflow-x-auto rounded-lg border border-zinc-200"
