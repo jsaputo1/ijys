@@ -64,6 +64,38 @@ function rangeInclusive(from: number, to: number): number[] {
 type SortDir = "asc" | "desc";
 type SelectedRow = { table: "totals" | "roto"; teamId: string } | null;
 
+function tsvCell(value: string | number): string {
+  return String(value).replace(/\t/g, " ").replace(/\r?\n/g, " ");
+}
+
+function csvCell(value: string | number): string {
+  const raw = String(value);
+  const escaped = raw.replace(/"/g, '""');
+  return /[",\r\n]/.test(raw) ? `"${escaped}"` : escaped;
+}
+
+function toTsv(headers: string[], rows: Array<Array<string | number>>): string {
+  return [headers.map(tsvCell).join("\t"), ...rows.map((r) => r.map(tsvCell).join("\t"))].join(
+    "\n",
+  );
+}
+
+function toCsv(headers: string[], rows: Array<Array<string | number>>): string {
+  return [headers.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join(
+    "\n",
+  );
+}
+
+function downloadTextFile(filename: string, mimeType: string, content: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function compareNullableNumbers(
   a: number | null,
   b: number | null,
@@ -170,6 +202,13 @@ export function RotoDashboard() {
   >("total");
   const [rotoSortDir, setRotoSortDir] = useState<SortDir>("desc");
   const [selectedRow, setSelectedRow] = useState<SelectedRow>(null);
+  const [exportStatus, setExportStatus] = useState<{
+    totals: string | null;
+    roto: string | null;
+  }>({
+    totals: null,
+    roto: null,
+  });
 
   const totalsTableWrapRef = useRef<HTMLDivElement | null>(null);
   const rotoTableWrapRef = useRef<HTMLDivElement | null>(null);
@@ -245,7 +284,7 @@ export function RotoDashboard() {
       const clamped =
         startWeekOptions.length > 0
           ? [...startWeekOptions].filter((w) => w <= resolvedEndWeek).pop() ??
-            bounds.seasonStartWeek
+          bounds.seasonStartWeek
           : Math.min(bounds.seasonStartWeek, resolvedEndWeek);
       setStartWeek(clamped);
     }
@@ -453,15 +492,45 @@ export function RotoDashboard() {
 
   const rotoSortedByLabel =
     rotoSortCol === "team"
-        ? "Team"
-        : rotoSortCol === "total"
-          ? "Total"
-          : rotoSortCol === "change"
-            ? "Change"
-            : (categories.find((c) => c.id === rotoSortCol)?.label ?? rotoSortCol);
+      ? "Team"
+      : rotoSortCol === "total"
+        ? "Total"
+        : rotoSortCol === "change"
+          ? "Change"
+          : (categories.find((c) => c.id === rotoSortCol)?.label ?? rotoSortCol);
 
   const endWeekDisplayLabel =
     endChoice === "current" ? "Current" : String(roto?.filters.endWeek ?? "");
+
+  const totalsExportHeaders = useMemo(
+    () => ["Rank", "Team", ...categories.map((c) => c.label)],
+    [categories],
+  );
+  const totalsExportRows = useMemo(
+    () =>
+      sortedTotalsRows.map((row, rowIndex) => [
+        rowIndex + 1,
+        row.teamName,
+        ...categories.map((c) => formatStat(c.id, row.stats[c.id] ?? null)),
+      ]),
+    [categories, sortedTotalsRows],
+  );
+
+  const rotoExportHeaders = useMemo(
+    () => ["Rank", "Team", "Total", ...categories.map((c) => c.label), "Change"],
+    [categories],
+  );
+  const rotoExportRows = useMemo(
+    () =>
+      sortedRotoRows.map((row, rowIndex) => [
+        rowIndex + 1,
+        row.teamName,
+        row.totalScore.toFixed(2),
+        ...categories.map((c) => (row.statScores[c.id] ?? 0).toFixed(2)),
+        formatTotalChange(weeklyTotalDelta(row, previousPeriodTotals)),
+      ]),
+    [categories, previousPeriodTotals, sortedRotoRows],
+  );
 
   return (
     <div className="flex w-full flex-col lg:gap-10 gap-6 text-[13px] lg:text-sm">
@@ -469,7 +538,7 @@ export function RotoDashboard() {
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-900">
           Start week
           <select
-            className="min-w-[10rem] rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 shadow-sm outline-none ring-zinc-400 focus:ring-2 lg:px-3 lg:py-2 lg:text-base"
+            className="min-w-[6rem] lg:min-w-[10rem] rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 shadow-sm outline-none ring-zinc-400 focus:ring-2 lg:px-3 lg:py-2 lg:text-base"
             disabled={startWeekOptions.length === 0}
             value={startSelectValue}
             onChange={(e) => {
@@ -492,7 +561,7 @@ export function RotoDashboard() {
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-900">
           End week
           <select
-            className="min-w-[10rem] rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 shadow-sm outline-none ring-zinc-400 focus:ring-2 lg:px-3 lg:py-2 lg:text-base"
+            className="min-w-[6rem] lg:min-w-[10rem] rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 shadow-sm outline-none ring-zinc-400 focus:ring-2 lg:px-3 lg:py-2 lg:text-base"
             value={endSelectValue}
             onChange={(e) => {
               const raw = e.target.value;
@@ -652,10 +721,9 @@ export function RotoDashboard() {
                         </td>
                       ))}
                       <td
-                        className={`whitespace-nowrap px-3 py-2 tabular-nums ${
-                          rotoSortCol === "change"
-                            ? "bg-sky-50/100 text-sky-800"
-                            : 
+                        className={`whitespace-nowrap px-3 py-2 tabular-nums ${rotoSortCol === "change"
+                          ? "bg-sky-50/100 text-sky-800"
+                          :
                           (() => {
                             const delta = weeklyTotalDelta(row, previousPeriodTotals);
                             if (delta === null || Number.isNaN(delta)) {
@@ -669,7 +737,7 @@ export function RotoDashboard() {
                             }
                             return "text-zinc-700";
                           })()
-                        }`}
+                          }`}
                       >
                         {formatTotalChange(
                           weeklyTotalDelta(row, previousPeriodTotals),
@@ -680,9 +748,46 @@ export function RotoDashboard() {
                 </tbody>
               </table>
             </div>
-            <p className="text-sm text-zinc-500">
-              Sorted by: {rotoSortedByLabel} ({rotoSortDir})
-            </p>
+            <div className="flex flex-wrap justify-between">
+              <p className="text-sm text-zinc-500">
+                Sorted by: {rotoSortedByLabel} ({rotoSortDir})
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        toTsv(rotoExportHeaders, rotoExportRows),
+                      );
+                      setExportStatus((prev) => ({ ...prev, roto: "Copied TSV." }));
+                    } catch {
+                      setExportStatus((prev) => ({ ...prev, roto: "Clipboard failed." }));
+                    }
+                  }}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Copy Table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadTextFile(
+                      "frankings.csv",
+                      "text/csv;charset=utf-8",
+                      toCsv(rotoExportHeaders, rotoExportRows),
+                    );
+                    setExportStatus((prev) => ({ ...prev, roto: "Saved CSV." }));
+                  }}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Save as CSV
+                </button>
+                {exportStatus.roto ? (
+                  <span className="text-xs text-zinc-500">{exportStatus.roto}</span>
+                ) : null}
+              </div>
+            </div>
           </section>
           <section className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
@@ -775,9 +880,47 @@ export function RotoDashboard() {
                 </tbody>
               </table>
             </div>
-            <p className="text-sm text-zinc-500">
-              Sorted by: {totalsSortedByLabel} ({totalsSortDir})
-            </p>
+            <div className="flex flex-wrap justify-between">
+              <p className="text-sm text-zinc-500">
+                Sorted by: {totalsSortedByLabel} ({totalsSortDir})
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        toTsv(totalsExportHeaders, totalsExportRows),
+                      );
+                      setExportStatus((prev) => ({ ...prev, totals: "Copied TSV." }));
+                    } catch {
+                      setExportStatus((prev) => ({ ...prev, totals: "Clipboard failed." }));
+                    }
+                  }}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Copy Table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadTextFile(
+                      "category-totals.csv",
+                      "text/csv;charset=utf-8",
+                      toCsv(totalsExportHeaders, totalsExportRows),
+                    );
+                    setExportStatus((prev) => ({ ...prev, totals: "Saved CSV." }));
+                  }}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Save as CSV
+                </button>
+                {exportStatus.totals ? (
+                  <span className="text-xs text-zinc-500">{exportStatus.totals}</span>
+                ) : null}
+              </div>
+            </div>
+
           </section>
         </>
       ) : null}
