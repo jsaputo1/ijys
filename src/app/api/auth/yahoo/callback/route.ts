@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+import { encryptText } from "@/lib/security/encryption";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   exchangeYahooCodeForTokens,
   YAHOO_OAUTH_STATE_COOKIE,
@@ -56,10 +58,39 @@ export async function GET(request: NextRequest) {
 
   try {
     const tokenPayload = await exchangeYahooCodeForTokens(code);
+    if (!tokenPayload.refresh_token) {
+      throw new Error("Yahoo token response did not include a refresh token.");
+    }
+
+    const supabase = getSupabaseServerClient();
+    const accessTokenExpiresAt = tokenPayload.expires_in
+      ? new Date(Date.now() + tokenPayload.expires_in * 1000).toISOString()
+      : null;
+
+    const { error: upsertError } = await supabase.from("yahoo_auth_tokens").upsert(
+      {
+        provider: "yahoo",
+        refresh_token_encrypted: encryptText(tokenPayload.refresh_token),
+        access_token_encrypted: tokenPayload.access_token
+          ? encryptText(tokenPayload.access_token)
+          : null,
+        access_token_expires_at: accessTokenExpiresAt,
+        token_type: tokenPayload.token_type ?? null,
+        scope:
+          typeof tokenPayload.x_oauth_scope === "string"
+            ? tokenPayload.x_oauth_scope
+            : null,
+      },
+      { onConflict: "provider" },
+    );
+
+    if (upsertError) {
+      throw new Error(`Failed to persist Yahoo tokens: ${upsertError.message}`);
+    }
+
     const response = NextResponse.json({
       ok: true,
-      message:
-        "Yahoo OAuth callback succeeded.",
+      message: "Yahoo OAuth callback succeeded and tokens were stored.",
       receivedTokens: {
         accessToken: Boolean(tokenPayload.access_token),
         refreshToken: Boolean(tokenPayload.refresh_token),
