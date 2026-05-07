@@ -21,6 +21,7 @@ type AppMetadataRow = {
   description: string | null;
   favicon_url: string | null;
   og_image_url: string | null;
+  updated_at: string | null;
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const supabase = getSupabaseServerClient();
     const { data } = await supabase
       .from("app_metadata")
-      .select("title, description, favicon_url, og_image_url")
+      .select("title, description, favicon_url, og_image_url, updated_at")
       .eq("id", 1)
       .maybeSingle<AppMetadataRow>();
 
@@ -36,13 +37,18 @@ export async function generateMetadata(): Promise<Metadata> {
     const description = data?.description ?? DEFAULT_DESCRIPTION;
     const faviconUrl = data?.favicon_url ?? null;
     const ogImageUrl = data?.og_image_url ?? null;
+    const cacheBuster = data?.updated_at
+      ? encodeURIComponent(data.updated_at)
+      : undefined;
+    const iconUrl =
+      faviconUrl && cacheBuster ? `${faviconUrl}?v=${cacheBuster}` : faviconUrl;
 
     return {
       title,
       description,
-      icons: faviconUrl
+      icons: iconUrl
         ? {
-            icon: faviconUrl,
+            icon: iconUrl,
           }
         : undefined,
       openGraph: ogImageUrl
