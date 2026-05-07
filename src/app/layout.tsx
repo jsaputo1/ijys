@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,61 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "IJYS Frankings",
-  description: "The Frankings",
+const DEFAULT_TITLE = "IJYS FRANKINGS";
+const DEFAULT_DESCRIPTION = "THE FRANKINGS";
+
+type AppMetadataRow = {
+  title: string | null;
+  description: string | null;
+  favicon_url: string | null;
+  og_image_url: string | null;
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data } = await supabase
+      .from("app_metadata")
+      .select("title, description, favicon_url, og_image_url")
+      .eq("id", 1)
+      .maybeSingle<AppMetadataRow>();
+
+    const title = data?.title ?? DEFAULT_TITLE;
+    const description = data?.description ?? DEFAULT_DESCRIPTION;
+    const faviconUrl = data?.favicon_url ?? null;
+    const ogImageUrl = data?.og_image_url ?? null;
+
+    return {
+      title,
+      description,
+      icons: faviconUrl
+        ? {
+            icon: faviconUrl,
+          }
+        : undefined,
+      openGraph: ogImageUrl
+        ? {
+            title,
+            description,
+            images: [{ url: ogImageUrl }],
+          }
+        : undefined,
+      twitter: ogImageUrl
+        ? {
+            card: "summary_large_image",
+            title,
+            description,
+            images: [ogImageUrl],
+          }
+        : undefined,
+    };
+  } catch {
+    return {
+      title: DEFAULT_TITLE,
+      description: DEFAULT_DESCRIPTION,
+    };
+  }
+}
 
 export default function RootLayout({
   children,
