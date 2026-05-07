@@ -502,35 +502,21 @@ export function RotoDashboard() {
   const endWeekDisplayLabel =
     endChoice === "current" ? "Current" : String(roto?.filters.endWeek ?? "");
 
-  const totalsExportHeaders = useMemo(
-    () => ["Rank", "Team", ...categories.map((c) => c.label)],
-    [categories],
-  );
-  const totalsExportRows = useMemo(
-    () =>
-      sortedTotalsRows.map((row, rowIndex) => [
-        rowIndex + 1,
-        row.teamName,
-        ...categories.map((c) => formatStat(c.id, row.stats[c.id] ?? null)),
-      ]),
-    [categories, sortedTotalsRows],
-  );
+  const totalsExportHeaders = ["Rank", "Team", ...categories.map((c) => c.label)];
+  const totalsExportRows = sortedTotalsRows.map((row, rowIndex) => [
+    rowIndex + 1,
+    row.teamName,
+    ...categories.map((c) => formatStat(c.id, row.stats[c.id] ?? null)),
+  ]);
 
-  const rotoExportHeaders = useMemo(
-    () => ["Rank", "Team", "Total", ...categories.map((c) => c.label), "Change"],
-    [categories],
-  );
-  const rotoExportRows = useMemo(
-    () =>
-      sortedRotoRows.map((row, rowIndex) => [
-        rowIndex + 1,
-        row.teamName,
-        row.totalScore.toFixed(2),
-        ...categories.map((c) => (row.statScores[c.id] ?? 0).toFixed(2)),
-        formatTotalChange(weeklyTotalDelta(row, previousPeriodTotals)),
-      ]),
-    [categories, previousPeriodTotals, sortedRotoRows],
-  );
+  const rotoExportHeaders = ["Rank", "Team", "Total", ...categories.map((c) => c.label), "Change"];
+  const rotoExportRows = sortedRotoRows.map((row, rowIndex) => [
+    rowIndex + 1,
+    row.teamName,
+    row.totalScore.toFixed(2),
+    ...categories.map((c) => (row.statScores[c.id] ?? 0).toFixed(2)),
+    formatTotalChange(weeklyTotalDelta(row, previousPeriodTotals)),
+  ]);
 
   return (
     <div className="flex w-full flex-col lg:gap-10 gap-6 text-[13px] lg:text-sm">
