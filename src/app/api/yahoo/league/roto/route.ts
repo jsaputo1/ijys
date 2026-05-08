@@ -12,6 +12,11 @@ import {
 } from "@/lib/yahoo/roto/cache";
 import { parseOptionalPositiveWeek, extractTeamLinesFromMatchup } from "@/lib/yahoo/roto/parse";
 import type { RotoSuccessPayload } from "@/lib/yahoo/roto/payload";
+import {
+  deleteRotoInKv,
+  getRotoFromKv,
+  setRotoInKv,
+} from "@/lib/yahoo/roto/kv-cache";
 import { buildRotoTables } from "@/lib/yahoo/roto/scoring";
 import {
   ROTO_CATEGORIES,
@@ -265,6 +270,28 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = getSupabaseServerClient();
+    if (forceRefresh) {
+      await deleteRotoInKv({
+        leagueKey,
+        startWeek: effectiveStartWeek,
+        endWeek: effectiveEndWeek,
+      });
+    }
+
+    const kvPayload = await getRotoFromKv({
+      leagueKey,
+      startWeek: effectiveStartWeek,
+      endWeek: effectiveEndWeek,
+    });
+    if (kvPayload && !forceRefresh) {
+      return NextResponse.json(kvPayload, {
+        headers: {
+          "x-roto-source": "kv-range-cache",
+          "x-roto-weeks-refreshed": "0",
+        },
+      });
+    }
+
     const cachedPayload = await getCachedRotoRange({
       supabase,
       leagueKey,
@@ -274,6 +301,10 @@ export async function GET(request: NextRequest) {
       currentWeek: endWeek,
     });
     if (cachedPayload) {
+      await setRotoInKv({
+        payload: cachedPayload,
+        currentWeek: endWeek,
+      });
       return NextResponse.json(cachedPayload, {
         headers: {
           "x-roto-source": "range-cache",
@@ -310,6 +341,10 @@ export async function GET(request: NextRequest) {
       payload,
       currentWeek: endWeek,
       source: "weekly-canonical",
+    });
+    await setRotoInKv({
+      payload,
+      currentWeek: endWeek,
     });
 
     return NextResponse.json(payload, {
