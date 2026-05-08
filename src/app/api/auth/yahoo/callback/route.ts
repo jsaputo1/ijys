@@ -8,6 +8,15 @@ import {
   YAHOO_OAUTH_STATE_COOKIE,
 } from "@/lib/yahoo/oauth";
 
+function redirectHomeAndClearState(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/";
+  url.search = "";
+  const response = NextResponse.redirect(url);
+  response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const storedState = cookieStore.get(YAHOO_OAUTH_STATE_COOKIE)?.value;
@@ -19,6 +28,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (oauthError) {
+    // On error, clear state cookie but keep JSON response (helps debug locally).
     const response = NextResponse.json(
       {
         ok: false,
@@ -88,18 +98,8 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to persist Yahoo tokens: ${upsertError.message}`);
     }
 
-    const response = NextResponse.json({
-      ok: true,
-      message: "Yahoo OAuth callback succeeded and tokens were stored.",
-      receivedTokens: {
-        accessToken: Boolean(tokenPayload.access_token),
-        refreshToken: Boolean(tokenPayload.refresh_token),
-        tokenType: tokenPayload.token_type,
-        expiresIn: tokenPayload.expires_in,
-      },
-    });
-    response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
-    return response;
+    // On success, send user back to the dashboard.
+    return redirectHomeAndClearState(request);
   } catch (error) {
     const response = NextResponse.json(
       {

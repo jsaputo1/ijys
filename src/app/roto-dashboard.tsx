@@ -458,16 +458,22 @@ export function RotoDashboard() {
 
   if (boundsError) {
     return (
-      <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        {boundsError}
-      </p>
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="mb-3">{boundsError}</p>
+        <a
+          href="/api/auth/yahoo/login"
+          className="inline-flex items-center justify-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-700 focus-visible:outline focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        >
+          Login to Yahoo
+        </a>
+      </div>
     );
   }
 
   if (!bounds) {
     return (
       <p className="text-sm text-zinc-500">
-        Loading league week range…
+        Loading THE FRANKINGS
       </p>
     );
   }

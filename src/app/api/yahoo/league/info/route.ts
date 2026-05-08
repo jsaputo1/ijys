@@ -60,7 +60,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        error: "Failed to load Yahoo league info.",
+        error: "Login to see league data",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
