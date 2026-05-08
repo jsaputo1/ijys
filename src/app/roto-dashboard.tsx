@@ -290,7 +290,7 @@ export function RotoDashboard() {
     }
   }, [bounds, startWeek, resolvedEndWeek, startWeekOptions]);
 
-  const loadRoto = useCallback(async () => {
+  const loadRoto = useCallback(async (forceRefresh = false) => {
     if (!bounds || startWeek === null || resolvedEndWeek === null) return;
     if (startWeek > resolvedEndWeek) return;
 
@@ -306,6 +306,9 @@ export function RotoDashboard() {
         const url = new URL("/api/yahoo/league/roto", window.location.origin);
         url.searchParams.set("startWeek", String(apiStart));
         url.searchParams.set("endWeek", String(end));
+        if (forceRefresh) {
+          url.searchParams.set("forceRefresh", "1");
+        }
         return url.toString();
       };
 
@@ -590,9 +593,21 @@ export function RotoDashboard() {
 
       {roto?.categories?.length ? (
         <>
-                    <p className="text-sm text-zinc-500">
+        <div className="flex justify-between items-center gap-2">
+            <p className="text-sm text-zinc-500">
               Week {roto.filters.startWeek} to {endWeekDisplayLabel}
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                void loadRoto(true);
+              }}
+              disabled={rotoLoading}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Refresh Data
+            </button>
+          </div>
           <section className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
               Frankings
