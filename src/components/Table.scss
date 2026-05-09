@@ -30,6 +30,11 @@
                 &.table-col-nosort {
                     cursor: default;
                 }
+
+                &.active {
+                    background-color: rgba(56, 189, 248, 0.12);
+                    color: #e0f2fe;
+                }
             }
 
         }
@@ -38,6 +43,8 @@
 
     tbody {
         tr {
+            cursor: pointer;
+
             td {
 
                 &:nth-child(1),
@@ -50,6 +57,11 @@
                     text-align: center;
                     border-right: 1px solid #18181B;
                 }
+
+                &.active {
+                    background-color: rgba(56, 189, 248, 0.12);
+                    color: #e0f2fe;
+                }
             }
 
             &:hover {
@@ -60,6 +72,39 @@
                     &:nth-child(2) {
                         background-color: #4b5563;
                     }
+
+                    &.active {
+                        background-color: rgba(56, 189, 248, 0.22);
+                        color: #e0f2fe;
+                    }
+                }
+            }
+
+            &.active td {
+                background-color: #3a3940;
+
+                &:nth-child(1),
+                &:nth-child(2) {
+                    background-color: #43424a;
+                }
+
+                &.active {
+                    background-color: rgba(56, 189, 248, 0.24);
+                    color: #e0f2fe;
+                }
+            }
+
+            &.active:hover td {
+                background-color: #48474f;
+
+                &:nth-child(1),
+                &:nth-child(2) {
+                    background-color: #524f58;
+                }
+
+                &.active {
+                    background-color: rgba(56, 189, 248, 0.28);
+                    color: #e0f2fe;
                 }
             }
         }
