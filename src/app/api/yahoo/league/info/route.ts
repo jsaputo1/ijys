@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getYahooEnv } from "@/lib/env";
 import { getLeagueWeekBounds } from "@/lib/yahoo/roto/yahoo-scoreboard";
-import { getValidYahooAccessToken } from "@/lib/yahoo/tokens";
+import {
+  getValidYahooAccessToken,
+  YahooAuthRequiredError,
+} from "@/lib/yahoo/tokens";
 
 export async function GET() {
   try {
@@ -31,14 +34,19 @@ export async function GET() {
 
     const responseBody = await response.text();
     if (!response.ok) {
+      const authFailed = response.status === 401;
       return NextResponse.json(
         {
           ok: false,
-          error: "Yahoo Fantasy API request failed.",
+          code: authFailed ? "YAHOO_AUTH_REQUIRED" : "YAHOO_API_ERROR",
+          error: authFailed
+            ? "Yahoo access token was rejected. Reconnect Yahoo."
+            : "Yahoo Fantasy API request failed.",
           status: response.status,
           details: responseBody,
+          leagueKey,
         },
-        { status: response.status },
+        { status: authFailed ? 401 : response.status },
       );
     }
 
@@ -57,10 +65,22 @@ export async function GET() {
       league: leagueParsed,
     });
   } catch (error) {
+    if (error instanceof YahooAuthRequiredError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "YAHOO_AUTH_REQUIRED",
+          error: "Login to see league data",
+          details: error.message,
+        },
+        { status: 401 },
+      );
+    }
+
     return NextResponse.json(
       {
         ok: false,
-        error: "Login to see league data",
+        error: "Failed to load league data",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
