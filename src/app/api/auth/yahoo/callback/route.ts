@@ -8,10 +8,13 @@ import {
   YAHOO_OAUTH_STATE_COOKIE,
 } from "@/lib/yahoo/oauth";
 
-function redirectHomeAndClearState(request: NextRequest) {
+function redirectHome(request: NextRequest, errorMessage?: string) {
   const url = request.nextUrl.clone();
   url.pathname = "/";
   url.search = "";
+  if (errorMessage) {
+    url.searchParams.set("yahoo_error", errorMessage);
+  }
   const response = NextResponse.redirect(url);
   response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
   return response;
@@ -28,42 +31,21 @@ export async function GET(request: NextRequest) {
   );
 
   if (oauthError) {
-    // On error, clear state cookie but keep JSON response (helps debug locally).
-    const response = NextResponse.json(
-      {
-        ok: false,
-        error: "Yahoo returned an OAuth error.",
-        oauthError,
-        oauthErrorDescription,
-      },
-      { status: 400 },
+    return redirectHome(
+      request,
+      oauthErrorDescription || oauthError || "Yahoo returned an OAuth error.",
     );
-    response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
-    return response;
   }
 
   if (!storedState || !state || storedState !== state) {
-    const response = NextResponse.json(
-      {
-        ok: false,
-        error: "Invalid OAuth state. Please retry login.",
-      },
-      { status: 400 },
-    );
-    response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
-    return response;
+    return redirectHome(request, "Invalid OAuth state. Please retry login.");
   }
 
   if (!code) {
-    const response = NextResponse.json(
-      {
-        ok: false,
-        error: "Missing authorization code from Yahoo callback.",
-      },
-      { status: 400 },
+    return redirectHome(
+      request,
+      "Missing authorization code from Yahoo callback.",
     );
-    response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
-    return response;
   }
 
   try {
@@ -98,18 +80,12 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to persist Yahoo tokens: ${upsertError.message}`);
     }
 
-    // On success, send user back to the dashboard.
-    return redirectHomeAndClearState(request);
+    return redirectHome(request);
   } catch (error) {
-    const response = NextResponse.json(
-      {
-        ok: false,
-        error: "Failed to exchange Yahoo authorization code for tokens.",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 502 },
+    const details = error instanceof Error ? error.message : "Unknown error";
+    return redirectHome(
+      request,
+      `Failed to exchange Yahoo authorization code for tokens. ${details}`,
     );
-    response.cookies.delete(YAHOO_OAUTH_STATE_COOKIE);
-    return response;
   }
 }

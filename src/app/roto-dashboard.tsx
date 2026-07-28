@@ -29,8 +29,14 @@ type InfoOk = {
 
 type InfoErr = {
   ok: false;
+  code?: string;
   error?: string;
+  details?: string;
+  status?: number;
+  leagueKey?: string;
 };
+
+const YAHOO_AUTO_LOGIN_KEY = "yahoo_auto_login_attempted";
 
 type RotoOk = {
   ok: true;
@@ -219,15 +225,52 @@ export function RotoDashboard() {
 
     async function loadBounds() {
       setBoundsError(null);
+
+      const oauthError =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("yahoo_error")
+          : null;
+      if (oauthError) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("yahoo_error");
+        window.history.replaceState({}, "", url.pathname + url.search);
+        setBoundsError(oauthError);
+        return;
+      }
+
       try {
         const res = await fetch("/api/yahoo/league/info", { cache: "no-store" });
         const body = (await res.json()) as InfoOk | InfoErr;
         if (!res.ok || !body.ok) {
-          throw new Error(
-            !body.ok ? (body.error ?? `HTTP ${res.status}`) : `HTTP ${res.status}`,
-          );
+          const errBody = !body.ok ? body : null;
+          const needsAuth = errBody?.code === "YAHOO_AUTH_REQUIRED" || res.status === 401;
+          const alreadyTried =
+            typeof window !== "undefined" &&
+            sessionStorage.getItem(YAHOO_AUTO_LOGIN_KEY) === "1";
+
+          // One auto-login per tab session when tokens are missing/rejected.
+          // Do not auto-login on Yahoo Fantasy 403s — re-auth will not fix those and causes a loop.
+          if (needsAuth && !alreadyTried && !attemptedAutoLoginRef.current) {
+            attemptedAutoLoginRef.current = true;
+            sessionStorage.setItem(YAHOO_AUTO_LOGIN_KEY, "1");
+            window.location.href = "/api/auth/yahoo/login";
+            return;
+          }
+
+          if (needsAuth && alreadyTried) {
+            sessionStorage.removeItem(YAHOO_AUTO_LOGIN_KEY);
+          }
+
+          const detailParts = [
+            errBody?.error ?? `HTTP ${res.status}`,
+            errBody?.status ? `(Yahoo HTTP ${errBody.status})` : null,
+            errBody?.leagueKey ? `league ${errBody.leagueKey}` : null,
+            errBody?.details ? String(errBody.details).slice(0, 300) : null,
+          ].filter(Boolean);
+          throw new Error(detailParts.join(" — "));
         }
         if (cancelled) return;
+        sessionStorage.removeItem(YAHOO_AUTO_LOGIN_KEY);
         setBounds(body.weekBounds);
       } catch (e) {
         if (!cancelled) {
@@ -241,12 +284,6 @@ export function RotoDashboard() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!boundsError || attemptedAutoLoginRef.current) return;
-    attemptedAutoLoginRef.current = true;
-    window.location.href = "/api/auth/yahoo/login";
-  }, [boundsError]);
 
   const { startWeekOptions, endNumericWeeks, lastCompletedWeek } = useMemo(() => {
     if (!bounds) {
@@ -468,9 +505,18 @@ export function RotoDashboard() {
 
   if (boundsError) {
     return (
-      <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        Redirecting to Yahoo login...
-      </p>
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="mb-3 whitespace-pre-wrap break-words">{boundsError}</p>
+        <a
+          href="/api/auth/yahoo/login"
+          className="inline-flex items-center justify-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-700 focus-visible:outline focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          onClick={() => {
+            sessionStorage.removeItem(YAHOO_AUTO_LOGIN_KEY);
+          }}
+        >
+          Login to Yahoo
+        </a>
+      </div>
     );
   }
 

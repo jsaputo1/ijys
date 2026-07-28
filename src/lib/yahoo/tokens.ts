@@ -8,6 +8,15 @@ type YahooTokenRow = {
   access_token_expires_at: string | null;
 };
 
+export class YahooAuthRequiredError extends Error {
+  readonly code = "YAHOO_AUTH_REQUIRED" as const;
+
+  constructor(message = "Yahoo auth token record not found. Reconnect Yahoo first.") {
+    super(message);
+    this.name = "YahooAuthRequiredError";
+  }
+}
+
 function isAccessTokenStillValid(expiresAt: string | null) {
   if (!expiresAt) {
     return false;
@@ -30,7 +39,7 @@ async function getStoredYahooTokens() {
     .single<YahooTokenRow>();
 
   if (error || !data) {
-    throw new Error(
+    throw new YahooAuthRequiredError(
       `Yahoo auth token record not found. Reconnect Yahoo first. ${error?.message ?? ""}`.trim(),
     );
   }
