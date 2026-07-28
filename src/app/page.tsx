@@ -1,5 +1,8 @@
 import { RotoDashboard } from "./roto-dashboard";
 
+/** Temporary: Yahoo Fantasy API access pending approval. Flip to false when restored. */
+const MAINTENANCE_MODE = true;
+
 export default function Home() {
   return (
     <div className="min-h-full w-full bg-zinc-50 text-zinc-900">
@@ -9,7 +12,13 @@ export default function Home() {
             THE FRANKINGS
           </h1>
         </header>
-        <RotoDashboard />
+        {MAINTENANCE_MODE ? (
+          <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-700">
+            Down for maintenance. Check back soon.
+          </p>
+        ) : (
+          <RotoDashboard />
+        )}
       </div>
     </div>
   );
